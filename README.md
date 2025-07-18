@@ -92,6 +92,8 @@ before the application receives it.
 - `--fragment-retries N`: retries for an unavailable HLS fragment (default: 10).
 - `--strict-fragments`: abort instead of creating an output that omits an
   unrecoverable fragment.
+- `--verbose`: show detailed yt-dlp and ffmpeg diagnostics, useful when a
+  source or post-processing step fails.
 - `--sample-percent PERCENT`: download only the leading percentage of the
   title, while still running normal subtitle embedding, muxing, and ffprobe
   validation. Use `1` for a quick pipeline smoke test.

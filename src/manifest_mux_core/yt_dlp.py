@@ -32,11 +32,18 @@ class YtDlpClient:
         ]
         if options.strict_fragments:
             command.append("--abort-on-unavailable-fragments")
+        if options.verbose:
+            command.append("--verbose")
         if section_end_seconds is not None:
             command.extend(["--download-sections", f"*0-{section_end_seconds}"])
 
         tracks = options.tracks
-        command.extend(["--format", tracks.audio_format, "--audio-multistreams", "--merge-output-format", "mkv"])
+        command.extend([
+            "--format", tracks.audio_format,
+            "--audio-multistreams",
+            "--merge-output-format", "mkv",
+            "--remux-video", "mkv",
+        ])
         command.extend(["--sub-langs", tracks.subtitle_languages, "--write-subs", "--convert-subs", "vtt"])
         if tracks.embed_subtitles:
             command.append("--embed-subs")
@@ -45,7 +52,7 @@ class YtDlpClient:
                 "--output",
                 str(temporary_dir / "%(title)s.%(ext)s"),
                 "--print-to-file",
-                "after_dl:%(filepath)s",
+                "after_move:%(filepath)s",
                 str(filepath_marker),
                 url,
             ]

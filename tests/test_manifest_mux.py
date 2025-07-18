@@ -47,6 +47,9 @@ class CommandTests(unittest.TestCase):
         self.assertEqual(command[command.index("--sub-langs") + 1], "all,-live_chat")
         self.assertIn("--audio-multistreams", command)
         self.assertIn("--embed-subs", command)
+        self.assertEqual(command[command.index("--remux-video") + 1], "mkv")
+        print_index = command.index("--print-to-file")
+        self.assertEqual(command[print_index + 1], "after_move:%(filepath)s")
         self.assertEqual(command[-1], SAMPLE_URL)
 
     def test_track_selection_is_configurable_without_language_hardcoding(self) -> None:
@@ -54,6 +57,7 @@ class CommandTests(unittest.TestCase):
             concurrent_fragments=4,
             fragment_retries=30,
             strict_fragments=True,
+            verbose=True,
             tracks=TrackSelection(
                 audio_format="bestvideo+bestaudio[language=de]",
                 subtitle_languages="de,en",
@@ -64,6 +68,7 @@ class CommandTests(unittest.TestCase):
         self.assertEqual(command[command.index("--concurrent-fragments") + 1], "4")
         self.assertEqual(command[command.index("--fragment-retries") + 1], "30")
         self.assertIn("--abort-on-unavailable-fragments", command)
+        self.assertIn("--verbose", command)
         self.assertEqual(command[command.index("--format") + 1], "bestvideo+bestaudio[language=de]")
         self.assertEqual(command[command.index("--sub-langs") + 1], "de,en")
         self.assertNotIn("--embed-subs", command)

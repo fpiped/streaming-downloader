@@ -188,6 +188,7 @@ def add_download_arguments(result: argparse.ArgumentParser) -> None:
         help=f"retries for each unavailable fragment (default: {DEFAULT_FRAGMENT_RETRIES})",
     )
     result.add_argument("--strict-fragments", action="store_true", help="fail on unavailable fragments")
+    result.add_argument("--verbose", action="store_true", help="show yt-dlp and ffmpeg diagnostic output")
     result.add_argument(
         "--sample-percent",
         type=percentage,
@@ -280,6 +281,7 @@ def main(argv: list[str] | None = None) -> int:
         fragment_retries=args.fragment_retries,
         strict_fragments=args.strict_fragments,
         sample_percent=args.sample_percent,
+        verbose=args.verbose,
         tracks=tracks,
     )
     return run_download(
