@@ -22,6 +22,7 @@ class DownloadOptions:
     concurrent_fragments: int = DEFAULT_CONCURRENT_FRAGMENTS
     fragment_retries: int = DEFAULT_FRAGMENT_RETRIES
     strict_fragments: bool = False
+    sample_percent: float | None = None
     tracks: TrackSelection = TrackSelection()
 
 

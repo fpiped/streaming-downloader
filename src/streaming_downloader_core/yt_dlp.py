@@ -18,6 +18,7 @@ class YtDlpClient:
         temporary_dir: Path,
         filepath_marker: Path,
         options: DownloadOptions,
+        section_end_seconds: float | None = None,
     ) -> list[str]:
         command = [
             self.executable,
@@ -31,6 +32,8 @@ class YtDlpClient:
         ]
         if options.strict_fragments:
             command.append("--abort-on-unavailable-fragments")
+        if section_end_seconds is not None:
+            command.extend(["--download-sections", f"*0-{section_end_seconds}"])
 
         tracks = options.tracks
         command.extend(["--format", tracks.audio_format, "--audio-multistreams", "--merge-output-format", "mkv"])
@@ -57,3 +60,22 @@ class YtDlpClient:
 
     def run(self, command: list[str]) -> subprocess.CompletedProcess[str]:
         return subprocess.run(command, check=True, text=True)
+
+    def duration_command(self, url: str) -> list[str]:
+        return [self.executable, "--no-playlist", "--skip-download", "--print", "%(duration)s", url]
+
+    def read_duration(self, url: str) -> float:
+        """Resolve duration before converting a percentage sample to seconds."""
+        result = subprocess.run(
+            self.duration_command(url),
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        try:
+            duration = float(result.stdout.strip().splitlines()[-1])
+        except (IndexError, ValueError) as error:
+            raise ValueError("the source did not provide a usable duration") from error
+        if duration <= 0:
+            raise ValueError("the source did not provide a positive duration")
+        return duration

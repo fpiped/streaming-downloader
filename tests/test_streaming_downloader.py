@@ -13,8 +13,10 @@ from streaming_downloader import (
     TrackSelection,
     build_command,
     parse_args,
+    percentage,
     positive_int,
     run_download,
+    sample_duration_seconds,
     validate_url,
 )
 from streaming_downloader_core.media import MediaValidationError, probe_media, validate_media
@@ -81,6 +83,25 @@ class CommandTests(unittest.TestCase):
         client = YtDlpClient("yt-dlp")
         self.assertEqual(client.inspect_command(SAMPLE_URL), ["yt-dlp", "--no-playlist", "--skip-download", "--dump-single-json", SAMPLE_URL])
         self.assertEqual(client.formats_command(SAMPLE_URL), ["yt-dlp", "--no-playlist", "--list-formats", SAMPLE_URL])
+
+    def test_sample_section_is_expressed_as_a_time_range(self) -> None:
+        command = YtDlpClient("yt-dlp").download_command(
+            SAMPLE_URL,
+            Path("/tmp/download"),
+            Path("marker"),
+            DownloadOptions(sample_percent=1),
+            section_end_seconds=12.5,
+        )
+        self.assertEqual(command[command.index("--download-sections") + 1], "*0-12.5")
+        self.assertEqual(sample_duration_seconds(1_250, 1), 12.5)
+        self.assertEqual(sample_duration_seconds(20, 1), 1.0)
+
+    def test_percentage_must_be_within_zero_and_one_hundred(self) -> None:
+        self.assertEqual(percentage("1"), 1.0)
+        for value in ["0", "100.1", "not-a-number"]:
+            with self.subTest(value=value):
+                with self.assertRaises(argparse.ArgumentTypeError):
+                    percentage(value)
 
     def test_positive_int_must_be_positive(self) -> None:
         self.assertEqual(positive_int("3"), 3)
@@ -165,6 +186,37 @@ class DownloadLifecycleTests(unittest.TestCase):
             self.assertEqual(result, 1)
             self.assertTrue((workspace / "movie.mkv").exists())
             shutil.rmtree(workspace)
+
+    def test_sample_download_resolves_duration_before_downloading(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            workspace = root / "workspace"
+            workspace.mkdir()
+            destination = root / "sample.mkv"
+
+            def complete_download(_self: YtDlpClient, command: list[str]) -> None:
+                self.assertEqual(command[command.index("--download-sections") + 1], "*0-12.0")
+                marker = Path(command[command.index("--print-to-file") + 2])
+                video = marker.parent / "sample.mkv"
+                video.write_text("video")
+                marker.write_text(str(video), encoding="utf-8")
+
+            with (
+                patch("streaming_downloader.tempfile.mkdtemp", return_value=str(workspace)),
+                patch.object(YtDlpClient, "read_duration", return_value=1_200),
+                patch.object(YtDlpClient, "run", autospec=True, side_effect=complete_download),
+                patch("streaming_downloader.validate_media", return_value=MediaProbe(12.0, frozenset({"video", "audio"}))),
+            ):
+                result = run_download(
+                    SAMPLE_URL,
+                    options=DownloadOptions(sample_percent=1),
+                    yt_dlp="yt-dlp",
+                    output_path=destination,
+                    ffprobe="ffprobe",
+                )
+
+            self.assertEqual(result, 0)
+            self.assertTrue(destination.exists())
 
 
 class MediaValidationTests(unittest.TestCase):

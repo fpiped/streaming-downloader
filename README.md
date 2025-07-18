@@ -92,6 +92,9 @@ before the application receives it.
 - `--fragment-retries N`: retries for an unavailable HLS fragment (default: 10).
 - `--strict-fragments`: abort instead of creating an output that omits an
   unrecoverable fragment.
+- `--sample-percent PERCENT`: download only the leading percentage of the
+  title, while still running normal subtitle embedding, muxing, and ffprobe
+  validation. Use `1` for a quick pipeline smoke test.
 - `--keep-temp-on-error`: preserve the temporary workspace and print its path
   when yt-dlp, post-processing, or validation fails.
 - `--format-selector SELECTOR`: advanced yt-dlp format selector. Its default
@@ -110,6 +113,19 @@ uv run streaming-downloader download 'https://example.com/it/watch/12015?e=38156
   --strict-fragments \
   --keep-temp-on-error
 ```
+
+For a quick end-to-end test that downloads approximately the first 1% of a
+title and verifies the resulting muxed file:
+
+```bash
+uv run streaming-downloader download 'https://example.com/it/watch/12015?e=38156' \
+  --sample-percent 1 \
+  --output-path ~/Movies/my-title-sample.mkv
+```
+
+The percentage is converted to a time range using the duration reported by the
+source. HLS/DASH streams are segmented, so the actual duration can be slightly
+longer than the requested percentage.
 
 ## Architecture
 

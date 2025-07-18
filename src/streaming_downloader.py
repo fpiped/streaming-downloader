@@ -41,6 +41,22 @@ def positive_int(value: str) -> int:
     return number
 
 
+def percentage(value: str) -> float:
+    """Parse a percentage in the open interval (0, 100]."""
+    try:
+        number = float(value)
+    except ValueError as error:
+        raise argparse.ArgumentTypeError("must be a number") from error
+    if not 0 < number <= 100:
+        raise argparse.ArgumentTypeError("must be greater than zero and at most 100")
+    return number
+
+
+def sample_duration_seconds(duration_seconds: float, sample_percent: float) -> float:
+    """Return a non-empty leading sample duration from a media duration."""
+    return max(1.0, duration_seconds * sample_percent / 100)
+
+
 def build_command(
     url: str,
     temporary_dir: Path,
@@ -93,8 +109,24 @@ def run_download(
     try:
         filepath_marker = temporary_dir / ".last-download-path"
         client = YtDlpClient(yt_dlp)
+        section_end_seconds = None
+        if options.sample_percent is not None:
+            try:
+                duration = client.read_duration(url)
+            except (subprocess.CalledProcessError, ValueError) as error:
+                print(f"Error: unable to determine source duration: {error}", file=sys.stderr)
+                return 1
+            section_end_seconds = sample_duration_seconds(duration, options.sample_percent)
         try:
-            client.run(client.download_command(url, temporary_dir, filepath_marker, options))
+            client.run(
+                client.download_command(
+                    url,
+                    temporary_dir,
+                    filepath_marker,
+                    options,
+                    section_end_seconds=section_end_seconds,
+                )
+            )
         except subprocess.CalledProcessError as error:
             print(f"yt-dlp exited with code {error.returncode}", file=sys.stderr)
             return error.returncode or 1
@@ -156,6 +188,12 @@ def add_download_arguments(result: argparse.ArgumentParser) -> None:
         help=f"retries for each unavailable fragment (default: {DEFAULT_FRAGMENT_RETRIES})",
     )
     result.add_argument("--strict-fragments", action="store_true", help="fail on unavailable fragments")
+    result.add_argument(
+        "--sample-percent",
+        type=percentage,
+        metavar="PERCENT",
+        help="download only the leading PERCENT of the title while keeping normal muxing",
+    )
     result.add_argument("--keep-temp-on-error", action="store_true", help="preserve failed download workspaces")
     result.add_argument(
         "--format-selector",
@@ -241,6 +279,7 @@ def main(argv: list[str] | None = None) -> int:
         concurrent_fragments=args.concurrent_fragments,
         fragment_retries=args.fragment_retries,
         strict_fragments=args.strict_fragments,
+        sample_percent=args.sample_percent,
         tracks=tracks,
     )
     return run_download(
